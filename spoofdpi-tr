@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# spoofdpi-tr — SpoofDPI wrapper for circumventing DPI/DNS interference on
+# Turkish residential networks. See README.md and docs/rationale.md for the
+# empirical basis of this configuration.
+#
+# Validated on macOS 15.x (Apple Silicon) against SpoofDPI v1.5.1 on a Turkish
+# residential ISP. Other providers and conditions may require adjusted
+# parameters; see docs/rationale.md#fallback-configurations.
+#
+# Repository: https://github.com/atakanapan/spoofdpi-turkey
+# License:    MIT (this wrapper). SpoofDPI itself: Apache-2.0.
+
+set -euo pipefail
+
+SPOOFDPI_BIN="${SPOOFDPI_BIN:-/opt/homebrew/bin/spoofdpi}"
+
+if [[ ! -x "$SPOOFDPI_BIN" ]]; then
+  echo "error: spoofdpi binary not found at $SPOOFDPI_BIN" >&2
+  echo "install with: brew install spoofdpi" >&2
+  echo "or override with: SPOOFDPI_BIN=/path/to/spoofdpi spoofdpi-tr" >&2
+  exit 1
+fi
+
+# The --auto-configure-network flag invokes networksetup, which requires
+# administrator privileges. If the wrapper is not already running as root,
+# re-execute under sudo. The system proxy is reverted on termination
+# (SIGINT/SIGTERM); no persistent modification occurs.
+if [[ $EUID -ne 0 ]]; then
+  echo "spoofdpi-tr: administrator privileges required to configure the system proxy"
+  exec sudo "$0" "$@"
+fi
+
+# Additional arguments forwarded to spoofdpi (e.g. --log-level debug).
+exec "$SPOOFDPI_BIN" \
+  --auto-configure-network \
+  --dns-mode udp \
+  --dns-addr "1.1.1.1:53" \
+  --dns-cache \
+  --https-split-mode random \
+  "$@"

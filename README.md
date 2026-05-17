@@ -1,8 +1,8 @@
 # spoofdpi-turkey
 
-A tested SpoofDPI wrapper configuration for circumventing deep packet inspection (DPI) and DNS interference on residential internet connections in Turkey.
+One-command macOS deployment of SpoofDPI for Turkey. The installer bootstraps Homebrew and SpoofDPI when absent, then installs a wrapper (`spoofdpi-tr`) that invokes SpoofDPI with flags tuned for the DPI and DNS interference patterns observed on Turkish residential ISPs. The system-wide HTTP/HTTPS proxy is enabled on demand and reverted automatically on termination — no persistent system changes.
 
-**Validated:** macOS 15.x (Apple Silicon), SpoofDPI v1.5.1.
+**Platform:** macOS only (Apple Silicon and Intel). **Validated against:** macOS 15.x (Apple Silicon), SpoofDPI v1.5.1.
 
 ## Background
 
@@ -87,9 +87,9 @@ SpoofDPI itself remains under the Apache License 2.0 and is unmodified by this p
 
 # Türkçe
 
-Türkiye'deki ev internet bağlantılarında DPI ve DNS müdahalesini aşmak için test edilmiş bir SpoofDPI wrapper konfigürasyonu.
+macOS için tek komutla kurulabilen, Türkiye için özelleştirilmiş config içeren SpoofDPI dağıtımı. Installer Homebrew ve SpoofDPI'yi (yoksa) otomatik kurar; ardından SpoofDPI'yi Türk ev internet sağlayıcılarındaki DPI ve DNS müdahale paternlerine göre ayarlanmış flag'lerle çağıran bir wrapper (`spoofdpi-tr`) yerleştirir. Sistem geneli HTTP/HTTPS proxy talep üzerine aktif olur, process sonlandığında otomatik geri alınır — sistemde kalıcı değişiklik olmaz.
 
-**Doğrulama ortamı:** macOS 15.x (Apple Silicon), SpoofDPI v1.5.1.
+**Platform:** sadece macOS (Apple Silicon ve Intel). **Doğrulama ortamı:** macOS 15.x (Apple Silicon), SpoofDPI v1.5.1.
 
 ## Arka Plan
 

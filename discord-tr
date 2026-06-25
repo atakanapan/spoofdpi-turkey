@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# discord-tr — launch the Discord desktop app so its host updater traverses the
+# SpoofDPI proxy.
+#
+# Why this exists:
+#   The Discord macOS app is two network clients, not one.
+#     1. The Electron/Chromium front-end (messages, login, gateway) honors the
+#        macOS *system* proxy. `spoofdpi-tr --auto-configure-network` sets that
+#        proxy, so the front-end already works.
+#     2. The host updater is a separate Rust binary built on reqwest/hyper. It
+#        does NOT read the macOS system proxy — only the *_PROXY environment
+#        variables. So even with spoofdpi-tr running, the updater connects
+#        DIRECTLY to updates.discord.com, eats a DPI-injected TLS RST, and fails
+#        (Discord_updater log: `hyper::Error(Connect, code -9806)`).
+#
+#   Launching Discord with HTTPS_PROXY/ALL_PROXY set makes the updater's reqwest
+#   client route through SpoofDPI, where the `random` split defeats the RST.
+#   Verified 2026-06-25 on Turkcell Superonline: updater fetches the manifest
+#   with HTTP 200 instead of a connection reset.
+#
+# Usage:
+#   1. In one terminal:  spoofdpi-tr           (leave it running)
+#   2. In another:       discord-tr
+#
+# Environment overrides:
+#   SPOOFDPI_PROXY   proxy URL                (default: http://127.0.0.1:8080)
+#   DISCORD_BIN      path to the Discord binary
+#                    (default: /Applications/Discord.app/Contents/MacOS/Discord)
+
+set -euo pipefail
+
+PROXY="${SPOOFDPI_PROXY:-http://127.0.0.1:8080}"
+DISCORD_BIN="${DISCORD_BIN:-/Applications/Discord.app/Contents/MacOS/Discord}"
+
+if [[ ! -x "$DISCORD_BIN" ]]; then
+  echo "discord-tr: Discord binary not found at $DISCORD_BIN" >&2
+  echo "  install Discord, or override with: DISCORD_BIN=/path/to/Discord discord-tr" >&2
+  exit 1
+fi
+
+# Parse host:port out of the proxy URL to verify SpoofDPI is actually listening.
+hostport="${PROXY#*://}"
+host="${hostport%%:*}"
+port="${hostport##*:}"
+if ! /usr/bin/nc -z "$host" "$port" 2>/dev/null; then
+  echo "discord-tr: nothing is listening on $host:$port." >&2
+  echo "  Start the proxy first (in another terminal): spoofdpi-tr" >&2
+  exit 1
+fi
+
+# Quit any running instance so the updater re-checks under the proxy env on
+# relaunch. The updater only runs its check shortly after process start.
+osascript -e 'quit app "Discord"' >/dev/null 2>&1 || true
+sleep 1
+
+# Launch the binary DIRECTLY (not via `open`): `open` routes through
+# LaunchServices, which does not propagate this shell's environment to the app.
+# A direct exec lets the updater child process inherit the *_PROXY variables.
+HTTPS_PROXY="$PROXY" HTTP_PROXY="$PROXY" ALL_PROXY="$PROXY" \
+  "$DISCORD_BIN" >/dev/null 2>&1 &
+disown
+
+echo "discord-tr: Discord launched via $PROXY — the updater should now connect."

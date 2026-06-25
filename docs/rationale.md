@@ -135,6 +135,56 @@ In the unlikely event that `1.1.1.1` itself is found to be hijacked or rate-limi
 - `--dns-addr 8.8.8.8:53` (Google Public DNS)
 - `--dns-addr 94.140.14.14:53` (AdGuard DNS)
 
+## Application-Specific Note: the Discord Desktop Updater
+
+The Discord macOS application is, for network purposes, two distinct clients:
+
+1. **The Electron/Chromium front-end** (messages, login, the realtime gateway).
+   This honors the macOS *system* proxy that `--auto-configure-network` installs,
+   so it is covered by `spoofdpi-tr` with no further action.
+2. **The host updater**, a separate binary built on the Rust `reqwest`/`hyper`
+   stack. Unlike Chromium, `reqwest` does **not** consult the macOS system proxy;
+   it reads only the `HTTPS_PROXY` / `ALL_PROXY` / `HTTP_PROXY` environment
+   variables. With `spoofdpi-tr` running but no such variable set, the updater
+   connects *directly* to `updates.discord.com`, receives a DPI-injected TLS RST,
+   and fails. The failure is recorded in
+   `~/Library/Application Support/discord/logs/Discord_updater_rCURRENT.log`:
+
+   ```text
+   ERROR [updater_client]: Failed: reqwest::Error { ... host: "updates.discord.com" ...
+     source: hyper::Error(Connect, code: -9806, "connection closed via error") }
+   ```
+
+   `updates.discord.com` and `discord.com/api/updates` were confirmed to be
+   SNI-RST-blocked when reached directly, and to return HTTP 200 when the same
+   request is routed through the `random`-split proxy.
+
+**Resolution.** Launch Discord with the proxy environment variables set so the
+updater's `reqwest` client routes through SpoofDPI. The `discord-tr` launcher in
+this repository does exactly that; equivalently:
+
+```sh
+HTTPS_PROXY=http://127.0.0.1:8080 ALL_PROXY=http://127.0.0.1:8080 \
+  /Applications/Discord.app/Contents/MacOS/Discord
+```
+
+Two details matter. The app must be launched as a direct `exec` of the binary,
+**not** via `open` — `open` dispatches through LaunchServices, which does not
+propagate the shell environment to the launched process, so the child updater
+would not inherit the variables. And SpoofDPI must already be listening on the
+referenced port (the default `--listen-addr` is `127.0.0.1:8080`).
+
+Verified 2026-06-25 on Turkcell Superonline: with the variables set, the updater
+fetches its manifest successfully (`Already up to date. Nothing to do.`) instead
+of looping on the `-9806` connection error.
+
+> Note on `--app-mode tun`: SpoofDPI's experimental TUN mode would, in principle,
+> capture the updater's direct connections regardless of proxy awareness. On the
+> tested build (v1.5.1, macOS, Apple Silicon) it created the `utun` interface but
+> installed neither an IPv4 address nor a default route, so no traffic was
+> actually intercepted. The environment-variable approach above is the reliable
+> fix on this build.
+
 ## Diagnostic Procedure
 
 When investigating a target that fails to connect:

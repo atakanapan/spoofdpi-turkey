@@ -42,6 +42,17 @@ spoofdpi-tr
 
 The wrapper requests administrator privileges once per invocation in order to apply a system-wide HTTP/HTTPS proxy via the macOS `networksetup` utility. Upon termination (SIGINT/SIGTERM), the proxy configuration is reverted automatically; no persistent system modification occurs.
 
+### Discord desktop app
+
+The Discord front-end (messages, login, the gateway) honors the system proxy and works under `spoofdpi-tr` directly. Its **host updater**, however, is a separate Rust/`reqwest` binary that ignores the macOS system proxy and reads only the `*_PROXY` environment variables — so the updater connects directly to `updates.discord.com`, hits a DPI-injected TLS reset, and fails (Discord shows an update loop). Launch Discord through the companion `discord-tr` script, which sets those variables so the updater traverses the proxy:
+
+```sh
+spoofdpi-tr      # terminal 1 — leave running
+discord-tr       # terminal 2 — launches Discord via the proxy
+```
+
+See [docs/rationale.md](docs/rationale.md#application-specific-note-the-discord-desktop-updater) for the full diagnosis (updater log error `-9806`) and verification.
+
 ## Configuration
 
 The wrapper invokes `spoofdpi` with the following arguments:
@@ -67,7 +78,7 @@ Validation was conducted against a single Turkish residential ISP. Filtering beh
 ## Removal
 
 ```sh
-sudo rm /usr/local/bin/spoofdpi-tr
+sudo rm /usr/local/bin/spoofdpi-tr /usr/local/bin/discord-tr
 brew uninstall spoofdpi   # optional
 ```
 
@@ -129,6 +140,17 @@ spoofdpi-tr
 
 Wrapper, macOS `networksetup` aracı üzerinden sistem genelinde bir HTTP/HTTPS proxy uygulamak için her çalıştırmada bir kez yönetici parolası ister. Process sonlandığında (SIGINT/SIGTERM), proxy yapılandırması otomatik olarak geri alınır; sistemde kalıcı bir değişiklik bırakılmaz.
 
+### Discord masaüstü uygulaması
+
+Discord'un ön yüzü (mesaj, login, gateway) sistem proxy'sini kullanır ve `spoofdpi-tr` ile doğrudan çalışır. Ancak **host updater**'ı ayrı bir Rust/`reqwest` binary'sidir; macOS sistem proxy'sini yok sayar, yalnızca `*_PROXY` ortam değişkenlerini okur. Bu yüzden updater `updates.discord.com`'a doğrudan bağlanır, DPI'nin enjekte ettiği TLS reset'i yer ve başarısız olur (Discord güncelleme döngüsüne girer). Discord'u, bu değişkenleri ayarlayan `discord-tr` script'i ile başlat:
+
+```sh
+spoofdpi-tr      # 1. terminal — açık kalsın
+discord-tr       # 2. terminal — Discord'u proxy üzerinden başlatır
+```
+
+Tam teşhis (updater log hatası `-9806`) ve doğrulama için: [docs/rationale.md](docs/rationale.md#application-specific-note-the-discord-desktop-updater).
+
 ## Konfigürasyon
 
 Wrapper, `spoofdpi`'yi aşağıdaki argümanlarla çağırır:
@@ -154,7 +176,7 @@ Doğrulama, tek bir Türk ev internet sağlayıcısı üzerinde yapılmıştır.
 ## Kaldırma
 
 ```sh
-sudo rm /usr/local/bin/spoofdpi-tr
+sudo rm /usr/local/bin/spoofdpi-tr /usr/local/bin/discord-tr
 brew uninstall spoofdpi   # opsiyonel
 ```
 

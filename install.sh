@@ -15,8 +15,10 @@ set -euo pipefail
 
 REPO_RAW="https://raw.githubusercontent.com/atakanapan/spoofdpi-turkey/main"
 SCRIPT_URL="$REPO_RAW/spoofdpi-tr"
+DISCORD_URL="$REPO_RAW/discord-tr"
 INSTALL_DIR="/usr/local/bin"
 INSTALL_PATH="$INSTALL_DIR/spoofdpi-tr"
+DISCORD_PATH="$INSTALL_DIR/discord-tr"
 ASSUME_YES=0
 
 for arg in "$@"; do
@@ -110,17 +112,22 @@ fi
 # Wrapper deployment.
 info "deploying wrapper to $INSTALL_PATH (administrator privileges required)"
 TMP="$(mktemp)"
-trap 'rm -f "$TMP"' EXIT
+TMP_DISCORD="$(mktemp)"
+trap 'rm -f "$TMP" "$TMP_DISCORD"' EXIT
 curl -fsSL "$SCRIPT_URL" -o "$TMP"
+curl -fsSL "$DISCORD_URL" -o "$TMP_DISCORD"
 
-# Sanity check on the downloaded file.
-if ! head -1 "$TMP" | grep -q '^#!.*bash'; then
-  err "downloaded file does not appear to be a bash script; installation aborted"
-  exit 1
-fi
+# Sanity check on the downloaded files.
+for f in "$TMP" "$TMP_DISCORD"; do
+  if ! head -1 "$f" | grep -q '^#!.*bash'; then
+    err "a downloaded file does not appear to be a bash script; installation aborted"
+    exit 1
+  fi
+done
 
 sudo mkdir -p "$INSTALL_DIR"
 sudo install -m 0755 "$TMP" "$INSTALL_PATH"
+sudo install -m 0755 "$TMP_DISCORD" "$DISCORD_PATH"
 
 # PATH advisory.
 if ! echo ":$PATH:" | grep -q ":$INSTALL_DIR:"; then
@@ -133,7 +140,8 @@ echo ""
 bold "Installation complete."
 echo ""
 echo "Usage:"
-echo "    spoofdpi-tr"
+echo "    spoofdpi-tr            # start the proxy (leave running)"
+echo "    discord-tr            # launch Discord through the proxy (fixes the updater)"
 echo ""
 echo "An administrator password will be requested on first invocation."
 echo "Terminate with Ctrl+C; the system proxy configuration will be reverted automatically."
